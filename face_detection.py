@@ -2,6 +2,10 @@ from retinaface import RetinaFace
 from timeit import default_timer as timer
 import numpy as np
 import cv2
+import tensorflow as tf
+
+# Check the number of available GPUs
+print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 source_video_path = 'C:/Users/77ana/Videos/VideoProc_Vlogger/Output/TikiSample.mp4'
 
@@ -62,5 +66,16 @@ def blur_video():
 if __name__ == "__main__":
 
     start = timer()
-    blur_video()
-    print("Time taken in seconds:", timer() - start)
+    # List of available GPUs
+    GPUs = tf.config.list_physical_devices('GPU')
+    print("GPUs Available: ", GPUs)
+    # Make sure the GPU you want to force it into --> is chosen below
+    with tf.device('/GPU:0'):
+        blur_video()
+        print("Time taken in GPU:", timer() - start)
+
+    # Run with CPU
+    start = timer()
+    with tf.device('/CPU:0'):
+        blur_video()
+        print("Time taken in CPU:", timer() - start)
