@@ -1,0 +1,5 @@
+numpy
+gdown
+pillow
+opencv-python
+tensorflow
