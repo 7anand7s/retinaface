@@ -1,15 +1,11 @@
 from retinaface import RetinaFace
 from timeit import default_timer as timer
-import numpy as np
 import cv2
 import tensorflow as tf
-from threading import Thread
 from collections import deque
 from multiprocessing.pool import ThreadPool
 import os
 
-# Check the number of available GPUs
-print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
 def process_frame(frame):
     resp = RetinaFace.detect_faces(frame)
@@ -24,16 +20,16 @@ def process_frame(frame):
             left, top, right, bottom = resp[f]['facial_area']
 
         # adjust the border for a higher blur
-        left = left - 10
-        right = right + 10
-        top = top - 10
-        bottom = bottom + 10
-        if right > width:
-            right = width
-        if bottom > height:
-            bottom = height
-        if left < 0: left = 0
-        if top < 0: top = 0
+        # left = left - 10
+        # right = right + 10
+        # top = top - 10
+        # bottom = bottom + 10
+        # if right > width:
+        #     right = width
+        # if bottom > height:
+        #     bottom = height
+        # if left < 0: left = 0
+        # if top < 0: top = 0
 
         # Draw a box around the face
         cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
@@ -45,9 +41,10 @@ def process_frame(frame):
 
     return frame
 
-def blur_video(file, name):
+
+def blur_video(video_file, name):
     # LOAD THE ORIGINAL CLIP
-    cap = cv2.VideoCapture(file)
+    cap = cv2.VideoCapture(video_file)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -95,15 +92,6 @@ def blur_video(file, name):
 
 
 if __name__ == "__main__":
-
-    # start = timer()
-    # # List of available GPUs
-    # GPUs = tf.config.list_physical_devices('GPU')
-    # print("GPUs Available: ", GPUs)
-    # # Make sure the GPU you want to force it into --> is chosen below
-    # with tf.device('/GPU:0'):
-    #     blur_video()
-    #     print("Time taken in GPU:", timer() - start)
 
     # Run with CPU
     start = timer()
