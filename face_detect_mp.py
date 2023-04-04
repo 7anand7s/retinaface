@@ -8,7 +8,7 @@ import os
 
 
 def process_frame(frame):
-    resp = RetinaFace.detect_faces(frame)
+    resp = RetinaFace.detect_faces(frame, allow_upscaling=False)
     if not isinstance(resp, tuple):
         face_key_list = list()
         for key in resp.keys():
