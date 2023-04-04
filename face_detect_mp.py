@@ -96,10 +96,10 @@ if __name__ == "__main__":
     # Run with CPU
     start = timer()
     with tf.device('/CPU:0'):
-        source_videos_path = 'D:/Tiki/retinaface/input_videos'
-
-        for file in os.listdir("D:/Tiki/retinaface/input_videos"):
+        curr_dir = os.getcwd()
+        source_videos_path = os.path.join(curr_dir, 'input_videos')
+        for file in os.listdir(source_videos_path):
             if file.endswith(".avi") or file.endswith(".mp4"):
-                path = os.path.join("D:/Tiki/retinaface/input_videos", file)
+                path = os.path.join(source_videos_path, file)
                 blur_video(path, file)
         print("Time taken in CPU:", timer() - start)
