@@ -50,12 +50,13 @@ def blur_video(video_file, name):
     fps = cap.get(cv2.CAP_PROP_FPS)
     fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
     try:
-        if not os.path.exists('D:/Tiki/retinaface/output_videos'):
-            os.makedirs('D:/Tiki/retinaface/output_videos')
+        curr_dir = os.getcwd()
+        if not os.path.exists(os.path.join(curr_dir, 'output_videos')):
+            os.makedirs(os.path.join(curr_dir, 'output_videos'))
     except OSError:
-        print('Error: Creating directory of data')
+        print('Error: Creating directory of output data')
 
-    output_file = os.path.join("D:/Tiki/retinaface/output_videos", name + '.mp4')
+    output_file = os.path.join(os.path.join(curr_dir, 'output_videos'), name + '.mp4')
     writer = cv2.VideoWriter(output_file, fourcc, fps, (width, height))
     thread_num = cv2.getNumberOfCPUs()
     pool = ThreadPool(processes=thread_num)
