@@ -4,6 +4,7 @@ from retinaface import RetinaFace
 from timeit import default_timer as timer
 import cv2
 import tensorflow as tf
+import dlib
 
 source_video_path = 'D:/Tiki/retinaface/60fps_trialrun.mp4'
 
@@ -21,33 +22,47 @@ def hconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
     return cv2.hconcat(im_list_resize)
 
 
-def blur_and_write(frames_list, coord_list, writer, h, w, factor=30):
+def integrate_blur(left, right, top, bottom, h, w, frame, factor=30):
+    left = left - 10
+    right = right + 10
+    top = top - 10
+    bottom = bottom + 10
+    if right > int(w):
+        right = int(w)
+    if bottom > int(h):
+        bottom = int(h)
+    if left < 0: left = 0
+    if top < 0: top = 0
+
+    cv2.rectangle(frame, (left, top), (right, bottom), (255, 255, 255), 2)
+
+    # Blur the area inside the rectangle
+    orig = frame[top:bottom, left:right]
+    try:
+        blurred = cv2.blur(orig, (factor, factor))
+        frame[top:bottom, left:right] = blurred
+    except:
+        print("An exception occurred in frame ")
+
+    return frame
+
+
+def blur_and_write(frames_list, coord_list, writer, h, w):
+    # faceCascade = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
     for frame in frames_list:
         if len(coord_list):
             for every_coord in coord_list:
                 if type(every_coord) is not float:
                     for face in every_coord:
                         left, top, right, bottom = face
-                        left = left - 10
-                        right = right + 10
-                        top = top - 10
-                        bottom = bottom + 10
-                        if right > int(w):
-                            right = int(w)
-                        if bottom > int(h):
-                            bottom = int(h)
-                        if left < 0: left = 0
-                        if top < 0: top = 0
+                        frame = integrate_blur(left, right, top, bottom, h, w, frame, factor=30)
 
-                        cv2.rectangle(frame, (left, top), (right, bottom), (255, 255, 255), 2)
+        # Model 2 on top for increased efficiency
+        face_detector = dlib.get_frontal_face_detector()  # face_detector
+        faces = face_detector(frame)
+        for (x1, y1, x2, y2) in faces:
+            frame = integrate_blur(x1, x1 + x2, y1, y1 + y2, h, w, frame, factor=30)
 
-                        # Blur the area inside the rectangle
-                        orig = frame[top:bottom, left:right]
-                        try:
-                            blurred = cv2.blur(orig, (factor, factor))
-                            frame[top:bottom, left:right] = blurred
-                        except:
-                            print("An exception occurred in frame ")
         frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
         writer.write(frame)
     return writer
