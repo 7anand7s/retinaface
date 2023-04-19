@@ -4,35 +4,41 @@ from retinaface import RetinaFace
 from timeit import default_timer as timer
 import cv2
 import tensorflow as tf
+# import face_recognition
 import dlib
 
 source_video_path = 'D:/Tiki/retinaface/60fps_trialrun.mp4'
 
 
-def vconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
-    w_min = min(im.shape[1] for im in im_list)
-    im_list_resize = [cv2.resize(im, (w_min, int(im.shape[0] * w_min / im.shape[1])), interpolation=interpolation)
-                      for im in im_list]
-    return cv2.vconcat(im_list_resize)
+def convert_and_trim_bb(image, rect):
+    # extract the starting and ending (x, y)-coordinates of the
+    # bounding box
+    startX = rect.left()
+    startY = rect.top()
+    endX = rect.right()
+    endY = rect.bottom()
+    # ensure the bounding box coordinates fall within the spatial
+    # dimensions of the image
+    startX = max(0, startX)
+    startY = max(0, startY)
+    endX = min(endX, image.shape[1])
+    endY = min(endY, image.shape[0])
+    # compute the width and height of the bounding box
+    w = endX - startX
+    h = endY - startY
+    # return our bounding box coordinates
+    return startX, startY, w, h
 
-def hconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
-    h_min = min(im.shape[0] for im in im_list)
-    im_list_resize = [cv2.resize(im, (int(im.shape[1] * h_min / im.shape[0]), h_min), interpolation=interpolation)
-                      for im in im_list]
-    return cv2.hconcat(im_list_resize)
 
-
-def integrate_blur(left, right, top, bottom, h, w, frame, factor=30):
+def integrate_blur(left, right, top, bottom,frame, factor=30):
     left = left - 10
     right = right + 10
     top = top - 10
     bottom = bottom + 10
-    if right > int(w):
-        right = int(w)
-    if bottom > int(h):
-        bottom = int(h)
-    if left < 0: left = 0
-    if top < 0: top = 0
+    right = min(right, frame.shape[1])
+    bottom = min(bottom, frame.shape[0])
+    left = max(0, left)
+    top = max(0,top)
 
     cv2.rectangle(frame, (left, top), (right, bottom), (255, 255, 255), 2)
 
@@ -55,17 +61,34 @@ def blur_and_write(frames_list, coord_list, writer, h, w):
                 if type(every_coord) is not float:
                     for face in every_coord:
                         left, top, right, bottom = face
-                        frame = integrate_blur(left, right, top, bottom, h, w, frame, factor=30)
+                        frame = integrate_blur(left, right, top, bottom, frame, factor=30)
 
         # Model 2 on top for increased efficiency
         face_detector = dlib.get_frontal_face_detector()  # face_detector
-        faces = face_detector(frame)
-        for (x1, y1, x2, y2) in faces:
-            frame = integrate_blur(x1, x1 + x2, y1, y1 + y2, h, w, frame, factor=30)
+        rects = face_detector(frame)
+        faces = [convert_and_trim_bb(frame, r) for r in rects]
+        if len(faces):
+            for each_face in faces:
+                for (x1, y1, x2, y2) in each_face:
+                    frame = integrate_blur(x1, x1 + x2, y1, y1 + y2, frame, factor=30)
 
         frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
         writer.write(frame)
     return writer
+
+
+def vconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
+    w_min = min(im.shape[1] for im in im_list)
+    im_list_resize = [cv2.resize(im, (w_min, int(im.shape[0] * w_min / im.shape[1])), interpolation=interpolation)
+                      for im in im_list]
+    return cv2.vconcat(im_list_resize)
+
+
+def hconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
+    h_min = min(im.shape[0] for im in im_list)
+    im_list_resize = [cv2.resize(im, (int(im.shape[1] * h_min / im.shape[0]), h_min), interpolation=interpolation)
+                      for im in im_list]
+    return cv2.hconcat(im_list_resize)
 
 
 def compare_sets(set1, set2):
@@ -94,15 +117,15 @@ def inter_polate(l1, l2, buff_size):
 
 def blur_video(output, factor=30):
     # LOAD THE ORIGINAL CLIP
-    cap = cv2.VideoCapture(source_video_path)
-    # cap1 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/CMWN5290.MP4')
-    # cap2 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/DITF7989.MP4')
-    # cap3 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/GSUN5783.MP4')
-    # cap4 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/MNPY6056.MP4')
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    # cap1 = cv2.VideoCapture(source_video_path)
+    cap1 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/CMWN5290.MP4')
+    cap2 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/DITF7989.MP4')
+    cap3 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/GSUN5783.MP4')
+    cap4 = cv2.VideoCapture('D:/Tiki/retinaface/Sample Videos 2023-03-13/MNPY6056.MP4')
+    width = int(cap1.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap1.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap1.get(cv2.CAP_PROP_FPS)
+    frame_count = int(cap1.get(cv2.CAP_PROP_FRAME_COUNT))
     duration = frame_count / fps
     print("FPS, W, H, D", fps, width, height, duration)
 
@@ -117,23 +140,24 @@ def blur_video(output, factor=30):
     coord_buffer = []
     pred_coord_b = []
     buff_size = 3
+    counter = 0
 
     while True:
         # Grab a single frame of video
-        ret, frame = cap.read()
+        # ret, frame = cap1.read()
         # Grab all frames of diff video streams
-        # ret1, frame1 = cap1.read()
-        # ret2, frame2 = cap2.read()
-        # ret3, frame3 = cap3.read()
-        # ret4, frame4 = cap4.read()
-
+        ret1, frame1 = cap1.read()
+        ret2, frame2 = cap2.read()
+        ret3, frame3 = cap3.read()
+        ret4, frame4 = cap4.read()
+        #
         # When the video is over, break out of the loop
-        # if not ret1 or not ret2 or not ret3 or not ret4:
-        #     break
-
-        # When the video is over, break out of the loop
-        if not ret:
+        if not ret1 or not ret2 or not ret3 or not ret4:
             break
+
+        # When the video is over, break out of the loop
+        # if not ret:
+        #     break
 
         # # How many frames are processed each second
         # if timer() - run_timer > 1:
@@ -143,16 +167,16 @@ def blur_video(output, factor=30):
         #     faces_frames_detected = no_of_frames
 
         # Resize frames
-        # frame1 = frame1[175:1280, 545:1750]  # x0 545 y0 175 x1 1750 y1 1280
-        # frame2 = frame2[175:1000, 0:1725]  # x0 0 y0 175 x1 1725 y1 1280
-        # frame3 = frame3[175:1280, 250:1870]  # x0 250 y0 175 x1 1870 y1 1280
-        # frame4 = frame4[175:1280, 0:1775]  # x0 0 y0 175 x1 1775 y1 1280
+        frame1 = frame1[175:1280, 545:1750]  # x0 545 y0 175 x1 1750 y1 1280
+        frame2 = frame2[175:1000, 0:1725]  # x0 0 y0 175 x1 1725 y1 1280
+        frame3 = frame3[175:1280, 250:1870]  # x0 250 y0 175 x1 1870 y1 1280
+        frame4 = frame4[175:1280, 0:1775]  # x0 0 y0 175 x1 1775 y1 1280
+
+        im_v1 = hconcat_resize_min([frame1, frame2])
+        im_v2 = hconcat_resize_min([frame3, frame4])
+        frame = vconcat_resize_min([im_v1, im_v2])
         #
-        # im_v1 = hconcat_resize_min([frame1, frame2])
-        # im_v2 = hconcat_resize_min([frame3, frame4])
-        # frame = vconcat_resize_min([im_v1, im_v2])
-        #
-        # new_height, new_width = frame.shape[:2]
+        new_height, new_width = frame.shape[:2]
         new_width = int(width)
         new_height = int(height)
 
@@ -190,7 +214,7 @@ def blur_video(output, factor=30):
             n = 0
             while True:
                 m = n
-                counter= counter+1
+                counter = counter + 1
                 if n > 5:
                     writer = blur_and_write(frame_buffer[0:6], pred_coord_b[0:6], writer, new_height, new_width)
                     del frame_buffer[0:6]
@@ -205,8 +229,7 @@ def blur_video(output, factor=30):
                     continue
                 for each_c1 in list1:
                     if type(list2) is float:
-                        print('copying')
-                        for a in range(buff_size-1):
+                        for a in range(buff_size - 1):
                             temp = n + 1
                             if pred_coord_b[temp] is not float:
                                 pred_coord_b[temp] = [each_c1]
@@ -215,8 +238,7 @@ def blur_video(output, factor=30):
                         continue
                     for each_c2 in list2:
                         if compare_sets(each_c1, each_c2) == 0:
-                            print('Copying')
-                            for a in range(buff_size-1):
+                            for a in range(buff_size - 1):
                                 temp = m + 1
                                 if pred_coord_b[temp] is not float:
                                     pred_coord_b[temp] = [each_c1]
@@ -224,19 +246,18 @@ def blur_video(output, factor=30):
                                     pred_coord_b[temp].append(each_c1)
                             break
                         elif compare_sets(each_c1, each_c2) == 1:
-                            print('Interpolating...')
+                            # print('Interpolating...')
                             coordinates = inter_polate(each_c1, each_c2, buff_size)
                             for a in coordinates:
                                 temp = m + 1
                                 a = list(map(int, a))
-                                print(a)
                                 if pred_coord_b[temp] is not float:
                                     pred_coord_b[temp] = [a]
                                 else:
                                     pred_coord_b[temp].append(a)
                             break
-                    print('copying')
-                    for a in range(buff_size-1):
+
+                    for a in range(buff_size - 1):
                         temp = m + 1
                         if pred_coord_b[temp] is not float:
                             pred_coord_b[temp] = [each_c1]
@@ -254,5 +275,5 @@ if __name__ == "__main__":
     print("GPUs Available: ", GPUs)
     # Make sure the GPU you want to force it into --> is chosen below
     with tf.device('/GPU:0'):
-        blur_video('blurred_video_interp4_2.mp4')
+        blur_video('blurred_video_interp5_3.mp4')
         print("Time taken in GPU:", timer() - start)
