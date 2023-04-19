@@ -5,7 +5,7 @@ from timeit import default_timer as timer
 import cv2
 import tensorflow as tf
 # import face_recognition
-import dlib
+# import dlib
 
 source_video_path = 'D:/Tiki/retinaface/60fps_trialrun.mp4'
 
@@ -64,13 +64,13 @@ def blur_and_write(frames_list, coord_list, writer, h, w):
                         frame = integrate_blur(left, right, top, bottom, frame, factor=30)
 
         # Model 2 on top for increased efficiency
-        face_detector = dlib.get_frontal_face_detector()  # face_detector
-        rects = face_detector(frame)
-        faces = [convert_and_trim_bb(frame, r) for r in rects]
-        if len(faces):
-            for each_face in faces:
-                for (x1, y1, x2, y2) in each_face:
-                    frame = integrate_blur(x1, x1 + x2, y1, y1 + y2, frame, factor=30)
+        # face_detector = dlib.get_frontal_face_detector()  # face_detector
+        # rects = face_detector(frame)
+        # faces = [convert_and_trim_bb(frame, r) for r in rects]
+        # if len(faces):
+        #    for each_face in faces:
+        #        for (x1, y1, x2, y2) in each_face:
+        #            frame = integrate_blur(x1, x1 + x2, y1, y1 + y2, frame, factor=30)
 
         frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
         writer.write(frame)
