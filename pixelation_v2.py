@@ -21,7 +21,7 @@ def hconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
     return cv2.hconcat(im_list_resize)
 
 
-def blur_and_write(frames_list, coord_list, writer, factor=30):
+def blur_and_write(frames_list, coord_list, writer, h, w, factor=30):
     for frame in frames_list:
         if len(coord_list):
             for every_coord in coord_list:
@@ -32,10 +32,10 @@ def blur_and_write(frames_list, coord_list, writer, factor=30):
                         right = right + 10
                         top = top - 10
                         bottom = bottom + 10
-                        if right > 1920:
-                            right = 1920
-                        if bottom > 1080:
-                            bottom = 1080
+                        if right > int(w):
+                            right = int(w)
+                        if bottom > int(h):
+                            bottom = int(h)
                         if left < 0: left = 0
                         if top < 0: top = 0
 
@@ -48,7 +48,7 @@ def blur_and_write(frames_list, coord_list, writer, factor=30):
                             frame[top:bottom, left:right] = blurred
                         except:
                             print("An exception occurred in frame ")
-
+        frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_AREA)
         writer.write(frame)
     return writer
 
@@ -175,8 +175,9 @@ def blur_video(output, factor=30):
             n = 0
             while True:
                 m = n
+                counter= counter+1
                 if n > 5:
-                    writer = blur_and_write(frame_buffer[0:6], pred_coord_b[0:6], writer)
+                    writer = blur_and_write(frame_buffer[0:6], pred_coord_b[0:6], writer, new_height, new_width)
                     del frame_buffer[0:6]
                     del coord_buffer[0:6]
                     del pred_coord_b[0:6]
@@ -189,6 +190,7 @@ def blur_video(output, factor=30):
                     continue
                 for each_c1 in list1:
                     if type(list2) is float:
+                        print('copying')
                         for a in range(buff_size-1):
                             temp = n + 1
                             if pred_coord_b[temp] is not float:
@@ -198,22 +200,27 @@ def blur_video(output, factor=30):
                         continue
                     for each_c2 in list2:
                         if compare_sets(each_c1, each_c2) == 0:
+                            print('Copying')
                             for a in range(buff_size-1):
                                 temp = m + 1
                                 if pred_coord_b[temp] is not float:
                                     pred_coord_b[temp] = [each_c1]
                                 else:
                                     pred_coord_b[temp].append(each_c1)
-                            continue
+                            break
                         elif compare_sets(each_c1, each_c2) == 1:
+                            print('Interpolating...')
                             coordinates = inter_polate(each_c1, each_c2, buff_size)
                             for a in coordinates:
                                 temp = m + 1
+                                a = list(map(int, a))
+                                print(a)
                                 if pred_coord_b[temp] is not float:
                                     pred_coord_b[temp] = [a]
                                 else:
                                     pred_coord_b[temp].append(a)
-                            continue
+                            break
+                    print('copying')
                     for a in range(buff_size-1):
                         temp = m + 1
                         if pred_coord_b[temp] is not float:
