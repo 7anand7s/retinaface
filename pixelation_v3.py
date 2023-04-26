@@ -8,6 +8,7 @@ import pandas as pd
 
 source_video_path = 'D:/Tiki/retinaface/60fps_trialrun.mp4'
 
+
 def convert_and_trim_bb(image, rect):
     # extract the starting and ending (x, y)-coordinates of the
     # bounding box
@@ -105,6 +106,7 @@ def compare_sets(set1, set2):
 
 
 def inter_polate(l1, l2, buff_size):
+    print('interpolating...')
     lists = [[np.nan, np.nan, np.nan, np.nan] for _ in range(buff_size - 1)]
     x = [l1]
     for y in lists:
@@ -120,7 +122,7 @@ def inter_polate(l1, l2, buff_size):
     return new_coords[1: -1]
 
 
-def blur_video(output, factor, method=None, upscaling=False, add_dlib=False):
+def blur_video(output, factor, method='default', upscaling=False, add_dlib=False):
     # LOAD THE ORIGINAL CLIP
     cap = cv2.VideoCapture(source_video_path)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -162,7 +164,9 @@ def blur_video(output, factor, method=None, upscaling=False, add_dlib=False):
         no_of_frames += 1
 
         if method == 'sampling':
-            # interpolation
+
+            print('Performing SAMPLING ******')
+            # Sampling
             if no_of_frames % 2:
                 if previous_blur:
                     for key in resp.keys():
@@ -182,51 +186,50 @@ def blur_video(output, factor, method=None, upscaling=False, add_dlib=False):
 
                 writer.write(frame)
 
-            # Find all the faces in the current frame of video & it's face_locations
-            resp = RetinaFace.detect_faces(frame, allow_upscaling=upscaling)
+            else:
+                # Find all the faces in the current frame of video & it's face_locations
+                resp = RetinaFace.detect_faces(frame, allow_upscaling=upscaling)
 
-            if not isinstance(resp, tuple):
-                previous_blur = True
-                face_key_list = list()
-                for key in resp.keys():
-                    if str(key).startswith('face_'):
-                        face_key_list.append(str(key))
+                if not isinstance(resp, tuple):
+                    previous_blur = True
+                    face_key_list = list()
+                    for key in resp.keys():
+                        if str(key).startswith('face_'):
+                            face_key_list.append(str(key))
 
-                for f in face_key_list:
-                    # Take out the locations of face detected
-                    left, top, right, bottom = resp[f]['facial_area']
-                    frame = integrate_blur(left, right, top, bottom, frame, factor=30)
+                    for f in face_key_list:
+                        # Take out the locations of face detected
+                        left, top, right, bottom = resp[f]['facial_area']
+                        frame = integrate_blur(left, right, top, bottom, frame, factor=30)
 
-            if add_dlib:
-                # Model 2 on top for increased efficiency
-                frame = dlib_detection(frame)
+                if add_dlib:
+                    # Model 2 on top for increased efficiency
+                    frame = dlib_detection(frame)
 
-            # Resize back to desired Output size 1080x1920 or 4k
-            frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
+                # Resize back to desired Output size 1080x1920 or 4k
+                frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_AREA)
 
-            # write every frame back as a video
-            writer.write(frame)
+                # write every frame back as a video
+                writer.write(frame)
 
-        elif method == 'interpolation':
+        if method == 'interpolation':
+            # print('Interpolating *****')
             frame_buffer.append(frame)
-            x = 0
 
             # Recognize faces on selected frames
             if no_of_frames % buff_size == 0:
-                coord = RetinaFace.detect_faces(frame_buffer[x], allow_upscaling=upscaling)
+                coord = RetinaFace.detect_faces(frame, allow_upscaling=upscaling)
                 coord_buffer.append(coord)
             else:
                 coord_buffer.append(tuple())
 
-            no_of_frames += 1
-
             # Extract locations if faces were located
-            if not isinstance(coord_buffer[x], tuple):
+            if not isinstance(coord_buffer[-1], tuple):
                 # print(coord_buffer)
                 temp = []
-                for key in coord_buffer[x].keys():
+                for key in coord_buffer[-1].keys():
                     if str(key).startswith('face_'):
-                        temp.append(coord_buffer[x][str(key)]['facial_area'])
+                        temp.append(coord_buffer[-1][str(key)]['facial_area'])
                 pred_coord_b.append(temp)
 
             else:
@@ -235,6 +238,7 @@ def blur_video(output, factor, method=None, upscaling=False, add_dlib=False):
             # Interpolate locations with the existing locations
             if len(frame_buffer) > 9:
                 n = 0
+                # print(len(frame_buffer), len(coord_buffer), len(pred_coord_b))
                 while True:
                     m = n
                     counter = counter + 1
@@ -287,7 +291,7 @@ def blur_video(output, factor, method=None, upscaling=False, add_dlib=False):
                             else:
                                 pred_coord_b[temp].append(each_c1)
 
-        else:
+        if method == 'default':
             resp = RetinaFace.detect_faces(frame, allow_upscaling=upscaling)
 
             if not isinstance(resp, tuple):
@@ -295,11 +299,11 @@ def blur_video(output, factor, method=None, upscaling=False, add_dlib=False):
                 left, top, right, bottom = resp['face_1']['facial_area']
 
                 frame = integrate_blur(left, right, top, bottom, frame, factor=30)
-                
-                if add_dlib:
-                    # Model 2 on top for increased efficiency
-                    frame = dlib_detection(frame)
-                
+
+            if add_dlib:
+                # Model 2 on top for increased efficiency
+                frame = dlib_detection(frame)
+
             writer.write(frame)
 
     # release and create a video file as mentioned in path
@@ -313,7 +317,8 @@ if __name__ == "__main__":
     print("GPUs Available: ", GPUs)
     # Make sure the GPU you want to force it into --> is chosen below
     with tf.device('/GPU:0'):
-        blur_video('Final_v1.mp4', 30, method='sampling', upscaling=True, add_dlib=False)
+        blur_video('Final_v6.mp4', 30, method='interpolation',
+                   upscaling=False, add_dlib=True)
         # Method attribute can be sampling, interpolation or None(default)
-        # dlib is the second model on top, can be enabled or disabled (add_dlib)
+        # dlib is the second model on top, can be enabled or disabled
         print("Time taken in GPU:", timer() - start)
