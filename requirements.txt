@@ -7,3 +7,5 @@ gdown~=4.6.0
 keras
 schedule~=1.1.0
 tqdm~=4.64.1
+dlib
+pandas
