@@ -100,7 +100,7 @@ def hconcat_resize_min(im_list, interpolation=cv2.INTER_CUBIC):
 def compare_sets(set1, set2):
     if set1 == set2:
         return 0
-    if np.allclose(set1, set2, atol=200):
+    if np.allclose(set1, set2, atol=250):
         return 1
     return 2
 
@@ -122,7 +122,7 @@ def inter_polate(l1, l2, buff_size):
     return new_coords[1: -1]
 
 
-def blur_video(output, factor, method='default', upscaling=False, add_dlib=False):
+def blur_video(output, factor=30, method='default', upscaling=False, add_dlib=False, interP_L=10):
     # LOAD THE ORIGINAL CLIP
     cap = cv2.VideoCapture(source_video_path)
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -142,8 +142,8 @@ def blur_video(output, factor, method='default', upscaling=False, add_dlib=False
     frame_buffer = []
     coord_buffer = []
     pred_coord_b = []
-    buff_size = 2
-    counter = 0
+    buff_size = int(interP_L)
+    print('Length of Interpolation:', buff_size)
     previous_blur = False
 
     while True:
@@ -236,60 +236,49 @@ def blur_video(output, factor, method='default', upscaling=False, add_dlib=False
                 pred_coord_b.append(np.nan)
 
             # Interpolate locations with the existing locations
-            if len(frame_buffer) > 9:
-                n = 0
-                # print(len(frame_buffer), len(coord_buffer), len(pred_coord_b))
-                while True:
-                    m = n
-                    counter = counter + 1
-                    if n > 5:
-                        writer = blur_and_write(frame_buffer[0:6], pred_coord_b[0:6], writer, height, width, add_dlib)
-                        del frame_buffer[0:6]
-                        del coord_buffer[0:6]
-                        del pred_coord_b[0:6]
-                        break
-                    # print(n)
-                    list1 = pred_coord_b[n]
-                    list2 = pred_coord_b[n + buff_size]
-                    n = n + buff_size
-                    if type(list1) is float:
-                        continue
+            if len(frame_buffer) > buff_size:
+                list1 = pred_coord_b[0]
+                list2 = pred_coord_b[-2]
+                pred_coord_b[-1] = pred_coord_b[-2]
+                if type(list1) is not float:
                     for each_c1 in list1:
                         if type(list2) is float:
-                            for a in range(buff_size - 1):
-                                temp = n + 1
-                                if pred_coord_b[temp] is not float:
-                                    pred_coord_b[temp] = [each_c1]
+                            for a in range(1, int(buff_size/2)):
+                                if pred_coord_b[a] is not float:
+                                    pred_coord_b[a] = [each_c1]
                                 else:
-                                    pred_coord_b[temp].append(each_c1)
+                                    pred_coord_b[a].append(each_c1)
                             continue
                         for each_c2 in list2:
                             if compare_sets(each_c1, each_c2) == 0:
-                                for a in range(buff_size - 1):
-                                    temp = m + 1
-                                    if pred_coord_b[temp] is not float:
-                                        pred_coord_b[temp] = [each_c1]
+                                for a in range(1, buff_size):
+                                    if pred_coord_b[a] is not float:
+                                        pred_coord_b[a] = [each_c1]
                                     else:
-                                        pred_coord_b[temp].append(each_c1)
+                                        pred_coord_b[a].append(each_c1)
                                 break
                             elif compare_sets(each_c1, each_c2) == 1:
                                 # print('Interpolating...')
                                 coordinates = inter_polate(each_c1, each_c2, buff_size)
                                 for a in coordinates:
-                                    temp = m + 1
                                     a = list(map(int, a))
-                                    if pred_coord_b[temp] is not float:
-                                        pred_coord_b[temp] = [a]
-                                    else:
-                                        pred_coord_b[temp].append(a)
+                                    for n in range(1, buff_size):
+                                        if pred_coord_b[n] is not float:
+                                            pred_coord_b[n] = [a]
+                                        else:
+                                            pred_coord_b[n].append(a)
                                 break
 
-                        for a in range(buff_size - 1):
-                            temp = m + 1
-                            if pred_coord_b[temp] is not float:
-                                pred_coord_b[temp] = [each_c1]
+                        for a in range(1,buff_size):
+                            if pred_coord_b[a] is not float:
+                                pred_coord_b[a] = [each_c1]
                             else:
-                                pred_coord_b[temp].append(each_c1)
+                                pred_coord_b[a].append(each_c1)
+                crop_s = buff_size
+                writer = blur_and_write(frame_buffer[0:crop_s], pred_coord_b[0:crop_s], writer, height, width, add_dlib)
+                del frame_buffer[0:crop_s]
+                del coord_buffer[0:crop_s]
+                del pred_coord_b[0:crop_s]
 
         if method == 'default':
             resp = RetinaFace.detect_faces(frame, allow_upscaling=upscaling)
@@ -317,8 +306,8 @@ if __name__ == "__main__":
     print("GPUs Available: ", GPUs)
     # Make sure the GPU you want to force it into --> is chosen below
     with tf.device('/GPU:0'):
-        blur_video('Final_v6.mp4', 30, method='interpolation',
-                   upscaling=False, add_dlib=True)
+        blur_video('Final_v8.mp4', 30, method='interpolation',
+                   upscaling=False, add_dlib=False, interP_L=10)
         # Method attribute can be sampling, interpolation or None(default)
         # dlib is the second model on top, can be enabled or disabled
         print("Time taken in GPU:", timer() - start)
